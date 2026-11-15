@@ -32,7 +32,7 @@ export class Interactions {
   }
 
   // Register a group as interactive. action() is called on use.
-  add(group, { label, hint = "", action, radius = 1.2, labelY = null }) {
+  add(group, { label, hint = "", action, radius = 1.2, labelY = null, animate = null }) {
     const meshes = [];
     group.traverse((o) => {
       if (o.isMesh) {
@@ -54,6 +54,8 @@ export class Interactions {
     const item = {
       group, meshes, sprite, label, hint, center, radius,
       glow: 0,
+      open: 0,
+      animate,
       use: () => {
         if (this._card) return;
         action(item);
@@ -94,6 +96,9 @@ export class Interactions {
       const near = d < NEAR && sameLevel && !this._card && player.enabled;
       const target = focus === it ? 1 : near ? 0.55 : 0;
       it.glow += (target - it.glow) * Math.min(1, dt * 8);
+      // 0 → 1 as you walk up (or point at it); each object decides what "opening" means
+      it.open += ((near || focus === it ? 1 : 0) - it.open) * Math.min(1, dt * 4.5);
+      if (it.animate) it.animate(it.open, this.time, dt);
       const pulse = 0.75 + 0.25 * Math.sin(this.time * 3.2 + it.center.x);
       const g = it.glow * pulse;
       for (const m of it.meshes) {

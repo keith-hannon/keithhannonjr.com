@@ -48,16 +48,18 @@
       </div>
     </div>
 
-    <!-- Always-visible corner menu (one click to the professional links) -->
-    <nav id="hud" aria-label="Quick links">
+    <!-- Corner menu: closed by default; opens a panel with every important link -->
+    <button id="menu-btn" aria-expanded="false" aria-controls="hud"><span class="bars" aria-hidden="true"></span>Menu</button>
+    <nav id="hud" aria-label="Links" hidden>
       <div class="hud-name" id="hud-name">%SITE_NAME%</div>
       <div class="hud-links">
         <a id="hud-resume" href="#" target="_blank" rel="noopener">Resume</a>
         <a id="hud-linkedin" href="#" target="_blank" rel="noopener">LinkedIn</a>
         <a id="hud-email" href="#">Email</a>
         <a id="hud-instagram" href="#" target="_blank" rel="noopener">Instagram</a>
+        <a href="./daily.html">The Cape Daily</a>
+        <a href="./simple.html">Skip the tour</a>
       </div>
-      <a class="hud-skip" href="./simple.html">Skip the tour</a>
     </nav>
 
     <!-- Interaction prompt (center of screen) -->
@@ -74,13 +76,14 @@
           <div>Mouse — look around</div>
           <div><kbd>Click</kbd> — interact with glowing things</div>
           <div><kbd>Shift</kbd> — hurry · <kbd>Esc</kbd> — release mouse</div>
+          <div><kbd>M</kbd> — open the links menu</div>
         </div>
         <div class="mobile-only">
           <div>Left thumb — joystick to walk</div>
           <div>Right thumb — drag to look</div>
           <div>Tap a glowing object to use it</div>
         </div>
-        <div class="muted">Find the basement for a game of pong.</div>
+        <div class="muted">Pong is in the basement. The beach is out the back door.</div>
       </div>
     </div>
 

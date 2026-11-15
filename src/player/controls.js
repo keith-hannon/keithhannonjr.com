@@ -161,7 +161,7 @@ export class Player {
   }
 
   get level() {
-    return levelOf(this.pos.y);
+    return levelOf(this.pos.y, this.pos.x, this.pos.z);
   }
 
   teleport(x, z, yaw = this.yaw, y = 0) {

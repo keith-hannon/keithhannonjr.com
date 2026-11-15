@@ -158,7 +158,32 @@ export function furnish(world, onUpdate) {
     dome.rotation.y = Math.PI / 2;
     dome.position.set(0, 1.28, 0);
     mb.add(dome);
-    box(mb, 0.04, 0.2, 0.08, red, 0.15, 1.3, -0.15, { collide: false }); // flag
+    // flag on a pivot (lies flat, swings up when you come near)
+    const flagP = new THREE.Group();
+    flagP.position.set(0.15, 1.2, -0.12);
+    box(flagP, 0.03, 0.26, 0.05, red, 0, 0.13, 0, { collide: false });
+    box(flagP, 0.03, 0.1, 0.12, red, 0, 0.22, 0.06, { collide: false });
+    mb.add(flagP);
+    // door hinged at the bottom of the end facing the walk
+    const doorP = new THREE.Group();
+    doorP.position.set(0, 1.07, 0.255);
+    box(doorP, 0.25, 0.21, 0.02, bodyMat, 0, 0.105, 0, { collide: false });
+    const dcap = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.02, 14, 1, false, -Math.PI / 2, Math.PI), bodyMat);
+    dcap.rotation.x = Math.PI / 2;
+    dcap.position.set(0, 0.21, 0);
+    doorP.add(dcap);
+    box(doorP, 0.05, 0.03, 0.03, brass, 0, 0.26, 0.02, { collide: false });
+    mb.add(doorP);
+    box(mb, 0.24, 0.3, 0.01, new THREE.MeshBasicMaterial({ color: 0x0b1420 }), 0, 1.2, 0.24, { collide: false, castShadow: false });
+    const letter = box(mb, 0.16, 0.012, 0.24, paper, 0, 1.085, 0.05, { collide: false, castShadow: false });
+    box(letter, 0.03, 0.002, 0.04, red, 0.05, 0.008, 0.08, { collide: false, castShadow: false });
+    const mailAnim = (o, t) => {
+      const e = o * o * (3 - 2 * o);
+      doorP.rotation.x = e * 1.5;
+      flagP.rotation.x = -1.5 + e * 1.5;
+      letter.position.z = 0.05 + e * 0.3;
+      letter.position.y = 1.085 + Math.sin(t * 3) * 0.006 * e;
+    };
     // "HANNON" on the side
     const nameTex = T.artTexture("mailname", 256, 96, (ctx, w, h) => {
       ctx.fillStyle = "#fff";
@@ -169,7 +194,7 @@ export function furnish(world, onUpdate) {
     });
     plane(mb, 0.4, 0.15, new THREE.MeshStandardMaterial({ map: nameTex, transparent: true, roughness: 0.6 }), 0.135, 1.2, 0.0, Math.PI / 2);
     collideBox(1.35, 9.3, 0.4, 0.6, "up");
-    ix.add(mb, { label: LABELS.email, action: () => ix.showCard(linkCard("email")) });
+    ix.add(mb, { label: LABELS.email, action: () => ix.showCard(linkCard("email")), animate: mailAnim });
   }
   // Adirondack chairs on the lawn
   function adirondack(x, z, rotY, m) {
@@ -311,6 +336,7 @@ export function furnish(world, onUpdate) {
     const cb = group(H.denWallX - 0.09, 1.55, -2.3, -Math.PI / 2);
     box(cb, 1.1, 0.8, 0.03, mat("cork", { color: 0xc8a06a, roughness: 1 }), 0, 0, 0, { collide: false, castShadow: false });
     box(cb, 1.16, 0.86, 0.02, walnut, 0, 0, -0.01, { collide: false, castShadow: false });
+    const pols = [];
     const polCols = ["#9fd3c7", "#f4d98b", "#b5534a", "#2f4a6b", "#e9dcc3", "#8fb6e8", "#c9b7ea", "#6f9a5a"];
     for (let i = 0; i < 8; i++) {
       const px = -0.4 + (i % 4) * 0.27 + (i > 3 ? 0.05 : 0);
@@ -321,19 +347,25 @@ export function furnish(world, onUpdate) {
         ctx.fillStyle = polCols[(i + 3) % 8]; ctx.beginPath(); ctx.arc(w * 0.5, h * 0.4, 12, 0, 7); ctx.fill();
         ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillRect(5, h * 0.52, w - 10, 8);
       });
-      const pm = plane(cb, 0.2, 0.24, new THREE.MeshStandardMaterial({ map: pol, roughness: 0.8 }), px, py, 0.02);
-      pm.rotation.z = ((i * 37) % 11 - 5) * 0.03;
+      // each polaroid hangs from its pin so it can swing
+      const pin = new THREE.Group();
+      pin.position.set(px, py + 0.11, 0.02);
+      const pm = plane(pin, 0.2, 0.24, new THREE.MeshStandardMaterial({ map: pol, roughness: 0.8, side: THREE.DoubleSide }), 0, -0.11, 0);
+      pin.userData.base = ((i * 37) % 11 - 5) * 0.03;
+      pin.rotation.z = pin.userData.base;
+      cb.add(pin);
+      pols.push(pin);
       sphere(cb, 0.012, new THREE.MeshStandardMaterial({ color: [0xb5534a, 0x2f4a6b, 0xf4d98b][i % 3] }), px, py + 0.11, 0.03, 6);
     }
-    ix.add(cb, { label: LABELS.instagram, action: () => ix.showCard(linkCard("instagram")) });
+    ix.add(cb, {
+      label: LABELS.instagram,
+      action: () => ix.showCard(linkCard("instagram")),
+      animate: (o, t) => pols.forEach((pn, i) => {
+        pn.rotation.z = pn.userData.base + Math.sin(t * 2.6 + i * 1.3) * 0.16 * o;
+        pn.rotation.x = -Math.abs(Math.sin(t * 1.9 + i)) * 0.35 * o;
+      }),
+    });
 
-    // Sailboat half-hull model above the couch on the kitchen-side wall, and a wall clock
-    const hull = group(H.kitchenWallX + 0.09, 1.9, -0.4, Math.PI / 2);
-    box(hull, 0.9, 0.25, 0.03, walnut, 0, 0, 0, { collide: false, castShadow: false });
-    const hh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.02, 0.7, 10, 1, false, 0, Math.PI), navy);
-    hh.rotation.z = Math.PI / 2; hh.rotation.y = -Math.PI / 2;
-    hh.position.set(0, -0.02, 0.04);
-    hull.add(hh);
   }
 
   // ======================================================================
@@ -385,6 +417,30 @@ export function furnish(world, onUpdate) {
     // magnets on the fridge
     for (let i = 0; i < 5; i++) box(fr, 0.06, 0.06, 0.01, new THREE.MeshStandardMaterial({ color: [0xb5534a, 0xf4d98b, 0x2f4a6b, 0xffffff, 0x9fd3c7][i] }), -0.2 + (i % 3) * 0.2, 1.35 + Math.floor(i / 3) * -0.25, 0.38, { collide: false, castShadow: false });
 
+    // Island with stools where the wall used to be: kitchen, dining and living are one room now
+    {
+      const ixc = H.kitchenWallX + 0.05, iz1 = -2.3, iz2 = 0.1;
+      box(g, 0.85, 0.88, iz2 - iz1, mat("islandNavy", { color: C.navy, roughness: 0.6 }), ixc, 0.44, (iz1 + iz2) / 2, { collide: true, level: "up" });
+      box(g, 1.1, 0.06, iz2 - iz1 + 0.2, mat("butcher", { color: 0xc9a06a, roughness: 0.5 }), ixc + 0.08, 0.91, (iz1 + iz2) / 2, { collide: false });
+      for (const sz of [-1.8, -1.1, -0.4]) {
+        cyl(g, 0.17, 0.17, 0.05, oak, ixc + 0.8, 0.66, sz, 12);
+        for (let k = 0; k < 4; k++) cyl(g, 0.015, 0.02, 0.64, white, ixc + 0.8 + Math.cos(k * 1.57 + 0.78) * 0.13, 0.32, sz + Math.sin(k * 1.57 + 0.78) * 0.13, 5);
+        collideBox(ixc + 0.8, sz, 0.36, 0.36, "up");
+      }
+      // on the island: cutting board, a bowl of clementines, a vase of hydrangeas
+      box(g, 0.3, 0.02, 0.42, walnut, ixc - 0.1, 0.95, -1.7, { collide: false, castShadow: false });
+      cyl(g, 0.15, 0.09, 0.08, white, ixc + 0.1, 0.98, -0.9, 14);
+      for (let k = 0; k < 5; k++) sphere(g, 0.045, mat("clem", { color: 0xf08a24, roughness: 0.7 }), ixc + 0.1 + Math.cos(k * 1.3) * 0.07, 1.03 + (k === 4 ? 0.05 : 0), -0.9 + Math.sin(k * 1.3) * 0.07, 8);
+      cyl(g, 0.06, 0.05, 0.2, mat("vase", { color: 0xcfe6f5, roughness: 0.2, transparent: true, opacity: 0.8 }), ixc, 1.04, -0.2, 10);
+      for (let k = 0; k < 4; k++) sphere(g, 0.085, mat("bloomV" + (k % 2), { color: k % 2 ? 0x8fb6e8 : 0xc9b7ea, roughness: 1 }), ixc + Math.cos(k * 1.6) * 0.07, 1.25 + (k % 2) * 0.05, -0.2 + Math.sin(k * 1.6) * 0.07, 7);
+      // two pendants over the island
+      for (const pz of [-1.6, -0.5]) {
+        cyl(g, 0.005, 0.005, 0.8, black, ixc + 0.1, H.wallH - 0.4, pz, 4);
+        cyl(g, 0.07, 0.18, 0.2, mat("pendantBrass", { color: 0xd4a94a, roughness: 0.3, metalness: 0.8, side: THREE.DoubleSide }), ixc + 0.1, H.wallH - 0.9, pz, 16);
+        sphere(g, 0.05, new THREE.MeshBasicMaterial({ color: 0xffe7c0 }), ixc + 0.1, H.wallH - 0.95, pz, 8);
+      }
+    }
+
     // Round kitchen table with chairs; The Cape Daily on top → Daily Games
     const tx = -4.6, tz = 1.9;
     const kt = group(tx, 0, tz);
@@ -411,7 +467,7 @@ export function furnish(world, onUpdate) {
     // coffee mug
     cyl(kt, 0.045, 0.04, 0.1, white, -0.3, 0.815, 0.25, 12);
     // The newspaper
-    const np = group(tx - 0.05, 0.765, tz + 0.1, 0.35);
+    const np = group(tx + 0.12, 0.765, tz + 0.12, 0.35);
     const npTex = T.artTexture("capeDaily", 256, 180, (ctx, w, h) => {
       ctx.fillStyle = "#f6f0e2"; ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#1f2a3a"; ctx.textAlign = "center";
@@ -423,11 +479,31 @@ export function furnish(world, onUpdate) {
       for (let y = 96; y < h - 10; y += 8) { ctx.fillRect(14, y, w * 0.45 - (y % 3) * 10, 3); ctx.fillRect(w * 0.55, y, w * 0.4 - (y % 5) * 6, 3); }
       ctx.fillStyle = "#9fd3c7"; ctx.fillRect(w * 0.55, 70, w * 0.4, 20);
     });
-    box(np, 0.42, 0.012, 0.3, new THREE.MeshStandardMaterial({ map: npTex, roughness: 1 }), 0, 0, 0, { collide: false, castShadow: false });
-    box(np, 0.42, 0.008, 0.3, paper, 0.01, -0.01, 0.005, { collide: false, castShadow: false });
+    const insideTex = T.artTexture("capeDailyInside", 256, 180, (ctx, w, h) => {
+      ctx.fillStyle = "#f6f0e2"; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#b5534a"; ctx.textAlign = "center"; ctx.font = "700 13px Arial"; ctx.fillText("DAILY GAMES", w / 2, 24);
+      ctx.strokeStyle = "#1f2a3a"; ctx.lineWidth = 2;
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+        ctx.fillStyle = ["#9fd3c7", "#f4d98b", "#f6f0e2"][(r * 3 + c * 2) % 3];
+        ctx.fillRect(34 + c * 22, 38 + r * 22, 22, 22); ctx.strokeRect(34 + c * 22, 38 + r * 22, 22, 22);
+      }
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { ctx.fillStyle = ["#2f4a6b", "#9fd3c7", "#f4d98b", "#b5534a"][r]; ctx.fillRect(160 + c * 20, 44 + r * 20, 17, 17); }
+      ctx.fillStyle = "#1f2a3a"; ctx.font = "italic 12px Georgia"; ctx.fillText("coming soon", w / 2, h - 12);
+    });
+    box(np, 0.42, 0.008, 0.3, new THREE.MeshStandardMaterial({ map: insideTex, roughness: 1 }), 0, -0.004, 0, { collide: false, castShadow: false });
+    // the front page is hinged along its left edge
+    const cover = new THREE.Group();
+    cover.position.set(-0.21, 0.004, 0);
+    box(cover, 0.42, 0.006, 0.3, new THREE.MeshStandardMaterial({ map: npTex, roughness: 1 }), 0.21, 0, 0, { collide: false, castShadow: false });
+    np.add(cover);
+    const paperAnim = (o, t) => {
+      const e = o * o * (3 - 2 * o);
+      cover.rotation.z = e * 2.2 + Math.sin(t * 2.2) * 0.04 * e;
+    };
     ix.add(np, {
       label: LABELS.daily,
-      labelY: 1.25,
+      labelY: 1.3,
+      animate: paperAnim,
       action: () =>
         ix.showCard({
           title: "The Cape Daily",
@@ -498,8 +574,10 @@ export function furnish(world, onUpdate) {
     const alu = mat("alu", { color: 0xd8d9dc, metalness: 0.6, roughness: 0.35 });
     box(lp, 0.34, 0.015, 0.24, alu, 0, 0.0075, 0, { collide: false });
     box(lp, 0.26, 0.002, 0.1, mat("keys", { color: 0x3a3d42 }), 0, 0.016, -0.02, { collide: false, castShadow: false });
-    const lid = box(lp, 0.34, 0.22, 0.012, alu, 0, 0.11, -0.12, { collide: false });
-    lid.rotation.x = 0.25;
+    const lidP = new THREE.Group();
+    lidP.position.set(0, 0.016, -0.12);
+    lp.add(lidP);
+    box(lidP, 0.34, 0.22, 0.012, alu, 0, 0.11, -0.006, { collide: false });
     const scrTex = T.artTexture("laptopScreen", 256, 160, (ctx, w, h) => {
       ctx.fillStyle = "#f3f2ef"; ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#2f4a6b"; ctx.fillRect(0, 0, w, 26);
@@ -511,11 +589,15 @@ export function furnish(world, onUpdate) {
       ctx.fillStyle = "#8a9aaa"; ctx.font = "9px Arial"; ctx.fillText("Harvard · Applied Math & Economics", 28, 128);
       for (let i = 0; i < 2; i++) ctx.fillRect(28, 140 + i * 7, w - 80 - i * 30, 3);
     });
-    const scr = plane(lp, 0.31, 0.19, new THREE.MeshStandardMaterial({ map: scrTex, emissive: 0xffffff, emissiveMap: scrTex, emissiveIntensity: 0.55, roughness: 0.5 }), 0, 0.11, -0.112);
-    scr.rotation.x = 0.25;
-    scr.position.y = 0.115;
-    scr.position.z = -0.12 + 0.007 * Math.cos(0.25);
-    ix.add(lp, { label: LABELS.linkedin, labelY: 1.15, action: () => ix.showCard(linkCard("linkedin")) });
+    const scrMat = new THREE.MeshBasicMaterial({ map: scrTex });
+    plane(lidP, 0.31, 0.19, scrMat, 0, 0.115, 0.002);
+    lidP.rotation.x = 1.5;
+    const lapAnim = (o) => {
+      const e = o * o * (3 - 2 * o);
+      lidP.rotation.x = 1.5 - e * 1.75;
+      scrMat.color.setScalar(0.08 + 0.92 * Math.max(0, (e - 0.5) * 2));
+    };
+    ix.add(lp, { label: LABELS.linkedin, labelY: 1.15, action: () => ix.showCard(linkCard("linkedin")), animate: lapAnim });
 
     // Printed resume on the desk → Resume
     const rs = group(deskX - 0.05, 0.76, deskZ - 0.62, -0.18);
@@ -534,11 +616,17 @@ export function furnish(world, onUpdate) {
         y += 8;
       });
     });
-    box(rs, 0.215, 0.006, 0.28, new THREE.MeshStandardMaterial({ map: resumeTex, roughness: 1 }), 0, 0, 0, { collide: false, castShadow: false });
+    const sheet = box(rs, 0.215, 0.004, 0.28, new THREE.MeshStandardMaterial({ map: resumeTex, roughness: 1 }), 0, 0, 0, { collide: false, castShadow: false });
+    const resumeAnim = (o, t) => {
+      const e = o * o * (3 - 2 * o);
+      sheet.position.y = e * 0.16 + Math.sin(t * 2.4) * 0.008 * e;
+      sheet.rotation.z = e * 0.55;
+      sheet.rotation.y = Math.sin(t * 1.3) * 0.08 * e;
+    };
     box(rs, 0.215, 0.004, 0.28, paper, 0.012, -0.004, 0.01, { collide: false, castShadow: false });
     // paperclip-ish brass clip
     box(rs, 0.03, 0.006, 0.04, brass, -0.08, 0.006, -0.11, { collide: false, castShadow: false });
-    ix.add(rs, { label: LABELS.resume, labelY: 1.45, action: () => ix.showCard(linkCard("resume")) });
+    ix.add(rs, { label: LABELS.resume, labelY: 1.45, action: () => ix.showCard(linkCard("resume")), animate: resumeAnim });
 
     // Bookshelf on the back wall, reading chair + lamp, rug, wall art
     bookshelf(4.6, 0, H.minZ + 0.17, 0, 1.6, 5);
@@ -606,10 +694,17 @@ export function furnish(world, onUpdate) {
       world.pongDecor.add(m);
     }));
     // ping pong balls on the near end
-    for (const bx of [-0.2, -0.12]) sphere(world.pongDecor, 0.02, mat("ppBall", { color: 0xfff6e0, roughness: 0.4 }), bx, 0.79, 1.05, 8);
+    const idleBalls = [-0.2, -0.12].map((bx) => sphere(world.pongDecor, 0.02, mat("ppBall", { color: 0xfff6e0, roughness: 0.4 }), bx, 0.79, 1.05, 8));
+    const pongAnim = (o, t) => {
+      const b = idleBalls[0];
+      const u = (t * 0.55) % 1;
+      b.position.set(-0.2 + 0.2 * u * o, 0.79 + Math.abs(Math.sin(u * Math.PI * 3)) * 0.32 * (1 - u * 0.6) * o, 1.05 - 1.9 * u * o);
+      idleBalls[1].position.y = 0.79 + Math.abs(Math.sin(t * 5)) * 0.06 * o;
+    };
     ix.add(pt, {
       label: LABELS.pong,
       labelY: bY + 1.5,
+      animate: pongAnim,
       action: () => games.start("pong", world),
     });
 

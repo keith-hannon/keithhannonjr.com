@@ -1,6 +1,6 @@
 // Builds the house shell: lawn, exterior, roof, rooms, stairs, basement, lights.
 import * as THREE from "three";
-import { H, addCollider } from "./layout.js";
+import { H, addCollider, WING, BACKDOOR } from "./layout.js";
 import * as T from "./textures.js";
 
 export const PALETTE = {
@@ -62,22 +62,7 @@ export function buildHouse(scene, { isMobile }) {
   const glass = mat("glass", { color: 0xbfe3ef, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.45 });
   const glassDark = mat("glassDark", { color: 0x3a5a7a, roughness: 0.2, metalness: 0.4 });
 
-  // ---------- Lawn & walk ----------
-  // Lawn is a big square with the house footprint cut out (so the stairwell is open below).
-  const lawnShape = new THREE.Shape();
-  lawnShape.moveTo(-45, -45); lawnShape.lineTo(45, -45); lawnShape.lineTo(45, 45); lawnShape.lineTo(-45, 45); lawnShape.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(H.minX, H.minZ); hole.lineTo(H.maxX, H.minZ); hole.lineTo(H.maxX, H.maxZ); hole.lineTo(H.minX, H.maxZ); hole.closePath();
-  lawnShape.holes.push(hole);
-  const lawnGeo = new THREE.ShapeGeometry(lawnShape);
-  // ShapeGeometry UVs are in world units; scale them so the grass tiles nicely
-  const uv = lawnGeo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3);
-  const lawn = new THREE.Mesh(lawnGeo, grass);
-  lawn.rotation.x = -Math.PI / 2;
-  lawn.position.y = -0.01;
-  lawn.receiveShadow = true;
-  g.add(lawn);
-
+  // ---------- Front walk (the lawn/terrain lives in outdoors.js) ----------
   const walk = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 9), flag);
   walk.rotation.x = -Math.PI / 2;
   walk.position.set(H.doorX, 0.005, H.maxZ + 4.6);
@@ -91,10 +76,33 @@ export function buildHouse(scene, { isMobile }) {
   const W = H.maxX - H.minX;
   const D = H.maxZ - H.minZ;
   // back wall
-  box(g, W + t, wallH, t, shingle, 0, wallH / 2, H.minZ - t / 2, { collide: true });
+  const bx1 = BACKDOOR.x1, bx2 = BACKDOOR.x2, backZ = H.minZ - t / 2;
+  box(g, bx1 - H.minX + t / 2, wallH, t, shingle, (H.minX - t / 2 + bx1) / 2, wallH / 2, backZ, { collide: true });
+  box(g, H.maxX - bx2 + t / 2, wallH, t, shingle, (bx2 + H.maxX + t / 2) / 2, wallH / 2, backZ, { collide: true });
+  box(g, bx2 - bx1, wallH - H.doorH, t, trim, (bx1 + bx2) / 2, H.doorH + (wallH - H.doorH) / 2, backZ, { collide: false });
+  // glass back door to the deck
+  const backDoor = new THREE.Group();
+  backDoor.position.set(bx1, 0, backZ);
+  const bdw = bx2 - bx1 - 0.04;
+  box(backDoor, bdw, 0.12, 0.05, trim, bdw / 2, 0.06, 0, { collide: false });
+  box(backDoor, bdw, 0.12, 0.05, trim, bdw / 2, H.doorH - 0.1, 0, { collide: false });
+  box(backDoor, 0.1, H.doorH - 0.04, 0.05, trim, 0.05, (H.doorH - 0.04) / 2, 0, { collide: false });
+  box(backDoor, 0.1, H.doorH - 0.04, 0.05, trim, bdw - 0.05, (H.doorH - 0.04) / 2, 0, { collide: false });
+  box(backDoor, bdw, 0.04, 0.04, trim, bdw / 2, 1.1, 0, { collide: false });
+  const bdGlass = new THREE.Mesh(new THREE.PlaneGeometry(bdw - 0.2, H.doorH - 0.26), mat("glassClear", { color: 0xcfeaf5, roughness: 0.05, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+  bdGlass.position.set(bdw / 2, H.doorH / 2, 0);
+  backDoor.add(bdGlass);
+  g.add(backDoor);
   // side walls
   box(g, t, wallH, D + t, shingleSide, H.minX - t / 2, wallH / 2, 0, { collide: true });
-  box(g, t, wallH, D + t, shingleSide, H.maxX + t / 2, wallH / 2, 0, { collide: true });
+  {
+    const z1 = WING.doorZ1, z2 = WING.doorZ2, rx = H.maxX + t / 2;
+    box(g, t, wallH, z1 - H.minZ + t / 2, shingleSide, rx, wallH / 2, (H.minZ - t / 2 + z1) / 2, { collide: true });
+    box(g, t, wallH, H.maxZ - z2 + t / 2, shingleSide, rx, wallH / 2, (z2 + H.maxZ + t / 2) / 2, { collide: true });
+    box(g, t, wallH - 2.15, z2 - z1, trim, rx, 2.15 + (wallH - 2.15) / 2, (z1 + z2) / 2, { collide: false });
+    box(g, t + 0.1, 2.2, 0.08, trim, rx, 1.1, z1 - 0.04, { collide: false, castShadow: false });
+    box(g, t + 0.1, 2.2, 0.08, trim, rx, 1.1, z2 + 0.04, { collide: false, castShadow: false });
+  }
   // front wall with door opening
   const frontZ = H.maxZ + t / 2;
   const doorL = H.doorX - H.doorW / 2, doorR = H.doorX + H.doorW / 2;
@@ -125,7 +133,10 @@ export function buildHouse(scene, { isMobile }) {
   knob.position.set(H.doorW - 0.18, 1.05, 0.08);
   doorGroup.add(knob);
   g.add(doorGroup);
-  g.userData.door = doorGroup;
+  g.userData.doors = [
+    { group: doorGroup, x: H.doorX, z: H.maxZ, sign: -1 },
+    { group: backDoor, x: (bx1 + bx2) / 2, z: H.minZ, sign: 1 },
+  ];
   doorMesh.name = "frontDoor";
 
   // ---------- Windows (front: kitchen + den, sides, back) ----------
@@ -154,7 +165,6 @@ export function buildHouse(scene, { isMobile }) {
   const fz = H.maxZ + t + 0.02;
   windowAt(-4.6, fz, 0);
   windowAt(5.0, fz, 0);
-  windowAt(H.maxX + t + 0.02, -1.5, Math.PI / 2);
   windowAt(H.minX - t - 0.02, 2.0, -Math.PI / 2);
   windowAt(-4.6, H.minZ - t - 0.02, Math.PI);
   windowAt(5.0, H.minZ - t - 0.02, Math.PI);
@@ -244,27 +254,6 @@ export function buildHouse(scene, { isMobile }) {
   hydrangea(6.3, H.maxZ + 0.9, 0.9);
   hydrangea(-6.0, H.maxZ + 0.9, 0.9);
 
-  // A few trees out in the yard for depth
-  const trunk = mat("trunk", { color: 0x5b4330, roughness: 1 });
-  const canopy = mat("canopy", { color: 0x4d8a4f, roughness: 1 });
-  function tree(x, z, s = 1) {
-    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * s, 0.25 * s, 2.2 * s, 7), trunk);
-    tr.position.set(x, 1.1 * s, z);
-    tr.castShadow = true;
-    g.add(tr);
-    const c = new THREE.Mesh(new THREE.SphereGeometry(1.6 * s, 10, 8), canopy);
-    c.position.set(x, 2.9 * s, z);
-    c.castShadow = true;
-    g.add(c);
-    addCollider(x - 0.35, x + 0.35, z - 0.35, z + 0.35, "up");
-  }
-  tree(-12, 6, 1.2);
-  tree(11.5, 3, 1.1);
-  tree(-10, -6, 1.3);
-  tree(12, -5, 1.0);
-  tree(-6, 14, 0.9);
-  tree(8, 15, 1.1);
-
   // White picket fence along the front of the lot
   const picket = mat("picket", { color: 0xf5f5f0, roughness: 0.8 });
   for (let x = -14; x <= 14; x += 0.5) {
@@ -311,7 +300,8 @@ export function buildHouse(scene, { isMobile }) {
   function baseboardRun(x1, x2, z, dz = 0) {
     box(g, Math.abs(x2 - x1), 0.14, 0.04, base, (x1 + x2) / 2, 0.07, z + dz, { collide: false, castShadow: false });
   }
-  baseboardRun(H.minX, H.maxX, H.minZ, 0.03);
+  baseboardRun(H.minX, bx1, H.minZ, 0.03);
+  baseboardRun(bx2, H.maxX, H.minZ, 0.03);
   baseboardRun(H.minX, doorL, H.maxZ, -0.03);
   baseboardRun(doorR, H.maxX, H.maxZ, -0.03);
 
@@ -332,14 +322,18 @@ export function buildHouse(scene, { isMobile }) {
     box(g, it + 0.08, 2.2, 0.08, trim, x, 1.1, dz1 - 0.04, { collide: false, castShadow: false });
     box(g, it + 0.08, 2.2, 0.08, trim, x, 1.1, dz2 + 0.04, { collide: false, castShadow: false });
   }
-  interiorWall(H.kitchenWallX, kitchenWall, livingWall);
+  box(g, 0.22, 0.26, D, mat("openBeam", { color: 0xf7f5ee, roughness: 0.7 }), H.kitchenWallX, wallH - 0.13, 0, { collide: false, castShadow: false });
+  box(g, 0.18, wallH, 0.18, mat("openBeam"), H.kitchenWallX, wallH / 2, 0.75, { collide: true, level: "up", castShadow: false });
+  for (const pz of [H.minZ + 0.06, H.maxZ - 0.06]) box(g, 0.18, wallH, 0.1, mat("openBeam"), H.kitchenWallX, wallH / 2, pz, { collide: false, castShadow: false });
   interiorWall(H.denWallX, livingWall, denWall);
 
   // Interior faces of exterior walls (painted), slightly inset
   const inset = 0.01;
   // back wall faces
   box(g, H.kitchenWallX - H.minX, wallH, 0.02, kitchenWall, (H.minX + H.kitchenWallX) / 2, wallH / 2, H.minZ + inset, { collide: false, castShadow: false });
-  box(g, H.denWallX - H.kitchenWallX, wallH, 0.02, livingWall, (H.kitchenWallX + H.denWallX) / 2, wallH / 2, H.minZ + inset, { collide: false, castShadow: false });
+  box(g, bx1 - H.kitchenWallX, wallH, 0.02, livingWall, (H.kitchenWallX + bx1) / 2, wallH / 2, H.minZ + inset, { collide: false, castShadow: false });
+  box(g, H.denWallX - bx2, wallH, 0.02, livingWall, (bx2 + H.denWallX) / 2, wallH / 2, H.minZ + inset, { collide: false, castShadow: false });
+  box(g, bx2 - bx1, wallH - H.doorH, 0.02, livingWall, (bx1 + bx2) / 2, H.doorH + (wallH - H.doorH) / 2, H.minZ + inset, { collide: false, castShadow: false });
   box(g, H.maxX - H.denWallX, wallH, 0.02, denWall, (H.denWallX + H.maxX) / 2, wallH / 2, H.minZ + inset, { collide: false, castShadow: false });
   // front wall faces (around door)
   box(g, H.kitchenWallX - H.minX, wallH, 0.02, kitchenWall, (H.minX + H.kitchenWallX) / 2, wallH / 2, H.maxZ - inset, { collide: false, castShadow: false });
@@ -349,7 +343,9 @@ export function buildHouse(scene, { isMobile }) {
   box(g, H.maxX - H.denWallX, wallH, 0.02, denWall, (H.denWallX + H.maxX) / 2, wallH / 2, H.maxZ - inset, { collide: false, castShadow: false });
   // side wall faces
   box(g, 0.02, wallH, D, kitchenWall, H.minX + inset, wallH / 2, 0, { collide: false, castShadow: false });
-  box(g, 0.02, wallH, D, denWall, H.maxX - inset, wallH / 2, 0, { collide: false, castShadow: false });
+  box(g, 0.02, wallH, WING.doorZ1 - H.minZ, denWall, H.maxX - inset, wallH / 2, (H.minZ + WING.doorZ1) / 2, { collide: false, castShadow: false });
+  box(g, 0.02, wallH, H.maxZ - WING.doorZ2, denWall, H.maxX - inset, wallH / 2, (WING.doorZ2 + H.maxZ) / 2, { collide: false, castShadow: false });
+  box(g, 0.02, wallH - 2.15, WING.doorZ2 - WING.doorZ1, denWall, H.maxX - inset, 2.15 + (wallH - 2.15) / 2, (WING.doorZ1 + WING.doorZ2) / 2, { collide: false, castShadow: false });
   // Interior-side windows (so you can see "out" from inside)
   function innerWindow(x, z, rotY) {
     const wg = new THREE.Group();
@@ -365,7 +361,6 @@ export function buildHouse(scene, { isMobile }) {
   }
   innerWindow(-4.6, H.maxZ - 0.03, Math.PI);
   innerWindow(5.0, H.maxZ - 0.03, Math.PI);
-  innerWindow(H.maxX - 0.03, -1.5, -Math.PI / 2);
   innerWindow(H.minX + 0.03, 2.0, Math.PI / 2);
   innerWindow(-4.6, H.minZ + 0.03, 0);
   innerWindow(5.0, H.minZ + 0.03, 0);
@@ -428,10 +423,10 @@ export function buildHouse(scene, { isMobile }) {
   }
 
   // ---------- Lighting ----------
-  const hemi = new THREE.HemisphereLight(0xcfe6f5, 0xa09888, 0.6);
+  const hemi = new THREE.HemisphereLight(0xdcefff, 0xc9bfa8, 1.0);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
-  sun.position.set(12, 18, 16);
+  sun.position.set(10, 26, 8);
   sun.castShadow = true;
   sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
   sun.shadow.camera.left = -16;
@@ -439,11 +434,12 @@ export function buildHouse(scene, { isMobile }) {
   sun.shadow.camera.top = 16;
   sun.shadow.camera.bottom = -16;
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 60;
+  sun.shadow.camera.far = 80;
   sun.shadow.bias = -0.0008;
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
   scene.add(sun.target);
+  g.userData.sun = sun;
 
   // Warm interior lights. (Lamps/fixtures themselves are added in furnish.js)
   const lights = [];

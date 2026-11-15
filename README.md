@@ -67,6 +67,8 @@ npm run build    # production build into dist/
 | `index.html`, `src/main.js` | The 3D house: renderer, loop, loading screen |
 | `src/world/layout.js` | Room dimensions, spawn point, collision boxes, floor heights |
 | `src/world/house.js` | Exterior, walls, roof, stairs, basement shell, lighting |
+| `src/world/outdoors.js` | Terrain, bluff, beach, ocean, sky, street, neighbors, deck, and the beach crowd |
+| `src/world/wing.js` | The side wing: bunk room and sunroom |
 | `src/world/textures.js` | Procedural textures (shingles, planks, paneling…) |
 | `src/furnish.js` | Furniture and the interactive objects in each room |
 | `src/interact.js` | Glow/label/click system and the link card |
@@ -83,5 +85,7 @@ npm run build    # production build into dist/
 2. Add one entry to `catalog` in `src/games/registry.js`. Set `daily: true` to list it on The Cape Daily.
 3. To put an object in the house that starts it, add a line in `src/furnish.js`:
    `ix.add(someObject, { label: "My Game", action: () => games.start("<name>", world) })`.
+
+Objects passed to `ix.add` can also take `animate: (open, time) => {…}`, where `open` goes from 0 to 1 as the visitor walks up (the mailbox door, the newspaper, the laptop lid all use this).
 
 Where the links live in the house: mailbox (email), corkboard (Instagram), laptop (LinkedIn), paper on the den desk (resume), newspaper on the kitchen table (Daily Games), pong table (beer pong).

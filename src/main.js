@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { SITE, LABELS } from "../site.config.js";
 import { buildHouse } from "./world/house.js";
+import { buildOutdoors } from "./world/outdoors.js";
+import { buildWing } from "./world/wing.js";
 import { H } from "./world/layout.js";
 import { Player } from "./player/controls.js";
 import { applyMeta } from "./meta.js";
@@ -30,10 +32,10 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xbfe0f2);
-scene.fog = new THREE.Fog(0xcfe6f5, 28, 70);
+scene.background = new THREE.Color(0xd9eef8);
+scene.fog = new THREE.Fog(0xd9eef8, 70, 240);
 
-const camera = new THREE.PerspectiveCamera(isMobile ? 78 : 72, window.innerWidth / window.innerHeight, 0.05, 120);
+const camera = new THREE.PerspectiveCamera(isMobile ? 78 : 72, window.innerWidth / window.innerHeight, 0.05, 600);
 
 // ---------- Build world ----------
 const loadingBar = document.getElementById("loading-bar");
@@ -76,6 +78,21 @@ enterBtn.addEventListener("click", () => {
   if (!isMobile) canvas.requestPointerLock?.();
 });
 
+// ---------- Links menu (closed until asked for) ----------
+const menuBtn = document.getElementById("menu-btn");
+const hud = document.getElementById("hud");
+function setMenu(open) {
+  hud.hidden = !open;
+  menuBtn.setAttribute("aria-expanded", String(open));
+  if (open && document.pointerLockElement) document.exitPointerLock?.();
+}
+menuBtn.addEventListener("click", () => setMenu(hud.hidden));
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyM" && !document.body.classList.contains("in-game")) setMenu(hud.hidden);
+  if (e.code === "Escape") setMenu(false);
+});
+canvas.addEventListener("pointerdown", () => setMenu(false));
+
 // ---------- Controls panel ----------
 const controls = document.getElementById("controls");
 document.getElementById("controls-toggle").addEventListener("click", () => {
@@ -84,13 +101,17 @@ document.getElementById("controls-toggle").addEventListener("click", () => {
 });
 
 // ---------- Front door swings open when you approach ----------
-const door = house.userData.door;
-let doorOpen = 0;
+const doors = house.userData.doors;
+const wing = buildWing(scene, house);
+buildOutdoors(scene, { isMobile }, onUpdate);
+onUpdate((dt) => (wing.fan.rotation.y += dt * 2.2));
 function updateDoor(dt) {
-  const d = Math.hypot(player.pos.x - H.doorX, player.pos.z - H.maxZ);
-  const target = d < 2.6 && player.level === "up" ? 1 : 0;
-  doorOpen += (target - doorOpen) * Math.min(1, dt * 4);
-  door.rotation.y = -doorOpen * 1.9; // swings inward
+  for (const dr of doors) {
+    const d = Math.hypot(player.pos.x - dr.x, player.pos.z - dr.z);
+    const target = d < 2.6 && player.pos.y > -1.5 ? 1 : 0;
+    dr.open = (dr.open || 0) + (target - (dr.open || 0)) * Math.min(1, dt * 4);
+    dr.group.rotation.y = dr.sign * dr.open * 1.9;
+  }
 }
 
 // ---------- Resize ----------
@@ -108,6 +129,10 @@ function loop(now) {
   player.update(dt);
   updateDoor(dt);
   for (const h of [...hooks]) h(dt);
+  // keep the sun's shadow box centred on the player
+  const sun = house.userData.sun;
+  sun.target.position.set(Math.round(player.pos.x), player.pos.y, Math.round(player.pos.z));
+  sun.position.set(sun.target.position.x + 10, player.pos.y + 26, sun.target.position.z + 8);
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
