@@ -37,7 +37,9 @@ export function addCollider(minX, maxX, minZ, maxZ, level = "both") {
 
 // The wing (bunk room + sunroom) on the right side of the house, and the back deck.
 export const WING = { minX: 7, maxX: 13, minZ: -4.5, maxZ: 3.5, splitZ: -0.5, doorZ1: 2.0, doorZ2: 3.2 };
-export const DECK = { minX: -4, maxX: 13, minZ: -8.5, maxZ: -4.5, stairX: 1.0 };
+export const DECK = { minX: -4, maxX: 20, minZ: -8.5, maxZ: -4.5, stairX: 1.0 };
+// Primary suite + two bathrooms, to the right of the bunk/sun wing.
+export const SUITE = { minX: 13, maxX: 20, minZ: -4.5, maxZ: 3.5, splitZ: 0.3, bathX: 16.5 };
 export const BACKDOOR = { x1: 1.55, x2: 2.65 };
 export const WATER_Y = -5.5;
 
@@ -50,7 +52,7 @@ const sm = (a, b, x) => {
 // Outdoor ground height: flat around the house and street, rolling side yards,
 // a bluff dropping ~5m behind the deck, then a beach sloping into the water.
 export function terrainHeight(x, z) {
-  const dx = Math.max(-9 - x, 0, x - 15);
+  const dx = Math.max(-9 - x, 0, x - 22);
   const dz = Math.max(-9 - z, 0, z - 6.5);
   const d = Math.hypot(dx, dz);
   const roll = Math.sin(x * 0.19 + 0.7) * Math.cos(z * 0.16 + 0.3) * 0.7 + Math.sin(x * 0.07 + 2) * 0.5 + 0.35;
@@ -69,7 +71,7 @@ function inMain(x, z) {
 }
 function onPlatform(x, z) {
   return (
-    (x >= WING.minX - 0.3 && x < WING.maxX && z > WING.minZ && z < WING.maxZ) ||
+    (x >= WING.minX - 0.3 && x < SUITE.maxX && z > WING.minZ && z < WING.maxZ) ||
     (x > DECK.minX && x < DECK.maxX && z > DECK.minZ - 0.1 && z <= DECK.maxZ + 0.3)
   );
 }

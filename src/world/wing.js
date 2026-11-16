@@ -2,10 +2,11 @@
 // that opens onto the deck.
 import * as THREE from "three";
 import { H, WING as W, addCollider } from "./layout.js";
-import { box, mat, PALETTE as C } from "./house.js";
+import { box, mat, setRound, PALETTE as C } from "./house.js";
 import * as T from "./textures.js";
 
 export function buildWing(scene, house) {
+  setRound(true);
   const g = new THREE.Group();
   g.name = "wing";
   scene.add(g);
@@ -35,8 +36,6 @@ export function buildWing(scene, house) {
   box(g, wd + t, wallH, t, shingle, cx + t / 2, wallH / 2, z2 + t / 2, { collide: true });
   box(g, wd, wallH, 0.02, bunkWall, cx, wallH / 2, z2 - 0.01, { collide: false, castShadow: false });
   // right wall, bunk-room part
-  box(g, t, wallH, z2 - zs, shingle, x2 + t / 2, wallH / 2, (zs + z2) / 2, { collide: true });
-  box(g, 0.02, wallH, z2 - zs, bunkWall, x2 - 0.01, wallH / 2, (zs + z2) / 2, { collide: false, castShadow: false });
   // main-house side (inside face only; the doorway is cut in house.js)
   box(g, 0.02, wallH, W.doorZ1 - z1, sunWall, x1 + 0.01, wallH / 2, (z1 + W.doorZ1) / 2, { collide: false, castShadow: false });
   box(g, 0.02, wallH, z2 - W.doorZ2, bunkWall, x1 + 0.01, wallH / 2, (W.doorZ2 + z2) / 2, { collide: false, castShadow: false });
@@ -61,7 +60,6 @@ export function buildWing(scene, house) {
     g.add(wg);
   }
   win(cx, z2 + t / 2, 0);
-  win(x2 + t / 2, 1.6, Math.PI / 2);
 
   // ---- partition between bunk room and sunroom, with a wide cased opening ----
   const o1 = cx - 1.1, o2 = cx + 1.1;
@@ -99,7 +97,6 @@ export function buildWing(scene, house) {
   const bz = z1 - t / 2;
   glassWall(x1, bz, dx1, bz);
   glassWall(dx2, bz, x2 + t, bz);
-  glassWall(x2 + t / 2, z1, x2 + t / 2, zs);
   box(g, dx2 - dx1, wallH - H.doorH, t, trim, (dx1 + dx2) / 2, H.doorH + (wallH - H.doorH) / 2, bz, { collide: false });
   for (const sx of [x1 - 0.02, x2 + t]) box(g, 0.14, wallH, 0.14, trim, sx, wallH / 2, bz, { collide: false });
   box(g, 0.14, wallH, 0.14, trim, x2 + t, wallH / 2, z2 + t, { collide: false });
@@ -185,7 +182,7 @@ export function buildWing(scene, house) {
     });
     return new THREE.MeshStandardMaterial({ map: tx, roughness: 1 });
   };
-  bunk(x2 - 0.6, 1.0 + 0.55, quilt("a", "#2f4a6b", "#ffffff"), quilt("b", "#b5534a", "#ffffff"));
+  bunk(x2 - 0.6, 0.62, quilt("a", "#2f4a6b", "#ffffff"), quilt("b", "#b5534a", "#ffffff"));
   bunk(x1 + 0.6, 0.62, quilt("c", "#9fd3c7", "#ffffff"), quilt("d", "#f4d98b", "#ffffff"));
   // rug, duffel bags, flip-flops, a dresser with a lamp, pennants
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.5), mat("rugBunk", { map: T.rugTexture(["#9fd3c7", "#f3ead6", "#2f4a6b", "#f3ead6"]), roughness: 1 }));
@@ -229,14 +226,14 @@ export function buildWing(scene, house) {
     addCollider(sx - (along ? 0.4 : w / 2), sx + (along ? 0.4 : w / 2), sz - (along ? w / 2 : 0.4), sz + (along ? w / 2 : 0.4), "up");
   }
   wickerSeat(x1 + 0.6, -2.6, 1.9, Math.PI / 2);
-  wickerSeat(x2 - 0.6, -1.6, 0.9, -Math.PI / 2);
+  wickerSeat(x2 - 0.6, -3.2, 0.9, -Math.PI / 2);
   // low table with a half-finished puzzle and playing cards
   box(g, 1.0, 0.05, 0.6, oak, x1 + 1.75, 0.4, -2.6, { collide: true, level: "up" });
   for (const [lx, lz] of [[-0.42, -0.24], [0.42, -0.24], [-0.42, 0.24], [0.42, 0.24]]) box(g, 0.05, 0.4, 0.05, oak, x1 + 1.75 + lx, 0.2, -2.6 + lz, { collide: false, castShadow: false });
   box(g, 0.5, 0.01, 0.36, std(0x6aa0c8), x1 + 1.65, 0.43, -2.6, { collide: false, castShadow: false });
   for (let i = 0; i < 5; i++) box(g, 0.06, 0.004, 0.09, std(0xffffff), x1 + 2.05 + (i % 2) * 0.04, 0.43 + i * 0.004, -2.75 + i * 0.07, { collide: false, castShadow: false }).rotation.y = i * 0.4;
   // potted palms / ferns
-  for (const [px, pz] of [[x2 - 0.45, -4.0], [x1 + 0.45, -4.05], [x2 - 0.45, -0.95]]) {
+  for (const [px, pz] of [[x1 + 0.45, -4.05], [x2 - 0.45, -0.85]]) {
     cyl(0.2, 0.15, 0.36, std(0xfafafa), px, 0.18, pz, 12);
     for (let i = 0; i < 6; i++) {
       const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.9, 4), std(0x4f8a4e));
@@ -281,5 +278,6 @@ export function buildWing(scene, house) {
   cyl(0.02, 0.02, 0.4, white, cx, wallH - 0.2, -2.5, 6);
   cyl(0.1, 0.1, 0.1, white, cx, wallH - 0.4, -2.5, 10);
 
+  setRound(false);
   return { fan };
 }

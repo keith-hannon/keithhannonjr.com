@@ -1,16 +1,19 @@
 // Stage b: furniture, decor, and the interactive link objects.
 import * as THREE from "three";
 import { H, addCollider } from "./world/layout.js";
-import { box, mat, PALETTE } from "./world/house.js";
+import { box, mat, setRound, PALETTE } from "./world/house.js";
 import * as T from "./world/textures.js";
 import { Interactions, linkCard } from "./interact.js";
 import { SITE, LABELS } from "../site.config.js";
 import { games } from "./games/registry.js";
+import { addFun } from "./fun.js";
+import { sfx } from "./sfx.js";
 
 const C = PALETTE;
 
 export function furnish(world, onUpdate) {
   const { scene, player, isMobile } = world;
+  setRound(true);
   const g = new THREE.Group();
   g.name = "furniture";
   scene.add(g);
@@ -124,7 +127,10 @@ export function furnish(world, onUpdate) {
   function bookshelf(x, y, z, rotY, w = 1.2, shelves = 4, level = "up") {
     const s = group(x, y, z, rotY);
     const hgt = 0.36 * shelves + 0.1;
-    box(s, w, hgt, 0.3, white, 0, hgt / 2, 0, { collide: false });
+    // an open case: two sides, a top and a kick board (it used to be a solid block hiding the books)
+    for (const sx of [-w / 2 + 0.02, w / 2 - 0.02]) box(s, 0.04, hgt, 0.3, white, sx, hgt / 2, 0, { collide: false });
+    box(s, w, 0.05, 0.32, white, 0, hgt, 0, { collide: false });
+    box(s, w, 0.05, 0.3, white, 0, 0.025, 0, { collide: false });
     box(s, w - 0.06, hgt - 0.06, 0.02, new THREE.MeshStandardMaterial({ color: C.navy, roughness: 1 }), 0, hgt / 2, -0.13, { collide: false, castShadow: false });
     for (let i = 0; i < shelves; i++) {
       const sy = 0.05 + i * 0.36;
@@ -177,12 +183,13 @@ export function furnish(world, onUpdate) {
     box(mb, 0.24, 0.3, 0.01, new THREE.MeshBasicMaterial({ color: 0x0b1420 }), 0, 1.2, 0.24, { collide: false, castShadow: false });
     const letter = box(mb, 0.16, 0.012, 0.24, paper, 0, 1.085, 0.05, { collide: false, castShadow: false });
     box(letter, 0.03, 0.002, 0.04, red, 0.05, 0.008, 0.08, { collide: false, castShadow: false });
-    const mailAnim = (o, t) => {
+    const mailAnim = (o, t, kick = 0) => {
       const e = o * o * (3 - 2 * o);
       doorP.rotation.x = e * 1.5;
       flagP.rotation.x = -1.5 + e * 1.5;
-      letter.position.z = 0.05 + e * 0.3;
-      letter.position.y = 1.085 + Math.sin(t * 3) * 0.006 * e;
+      letter.position.z = 0.05 + e * 0.3 + kick * 0.35;
+      letter.position.y = 1.085 + Math.sin(t * 3) * 0.006 * e + kick * 0.12;
+      letter.rotation.x = -kick * 0.6;
     };
     // "HANNON" on the side
     const nameTex = T.artTexture("mailname", 256, 96, (ctx, w, h) => {
@@ -194,7 +201,7 @@ export function furnish(world, onUpdate) {
     });
     plane(mb, 0.4, 0.15, new THREE.MeshStandardMaterial({ map: nameTex, transparent: true, roughness: 0.6 }), 0.135, 1.2, 0.0, Math.PI / 2);
     collideBox(1.35, 9.3, 0.4, 0.6, "up");
-    ix.add(mb, { label: LABELS.email, action: () => ix.showCard(linkCard("email")), animate: mailAnim });
+    ix.add(mb, { label: LABELS.email, action: () => ix.showCard(linkCard("email")), animate: mailAnim, sound: () => sfx.creak() });
   }
   // Adirondack chairs on the lawn
   function adirondack(x, z, rotY, m) {
@@ -287,7 +294,7 @@ export function furnish(world, onUpdate) {
     book(g, cx - 0.25, 0.42, -1.8, C.navy, 0.03, 0.22, 0.3);
     book(g, cx - 0.25, 0.45, -1.8, C.nantucketRed, 0.03, 0.2, 0.28);
     cyl(g, 0.06, 0.06, 0.08, paper, cx + 0.3, 0.46, -1.8, 10);
-    armchair(cx + 1.75, 0, -2.3, -Math.PI / 2 - 0.5, red);
+    armchair(cx + 1.95, 0, -0.6, -2.63, red);
     // side table + lamp in the back-left corner, floor lamp front-right
     table(cx - 1.75, 0, -3.3, 0.5, 0.5, 0.6, oak, oak, 0.03);
     lamp(cx - 1.75, 0.6, -3.3, { intensity: 2.0 });
@@ -330,7 +337,6 @@ export function furnish(world, onUpdate) {
     box(g, 0.34, 0.08, 0.34, navy, 2.6, 0.38, 2.2, { collide: false });
     cyl(g, 0.16, 0.12, 0.3, mat("terracotta", { color: 0xc67a52, roughness: 1 }), -2.1, 0.15, 3.6, 12);
     sphere(g, 0.28, mat("plant", { color: 0x4f8a4e, roughness: 1 }), -2.1, 0.5, 3.6, 8);
-    collideBox(-2.1, 3.6, 0.5, 0.5, "up");
 
     // Corkboard of polaroids on the den-side wall → Instagram
     const cb = group(H.denWallX - 0.09, 1.55, -2.3, -Math.PI / 2);
@@ -360,6 +366,7 @@ export function furnish(world, onUpdate) {
     ix.add(cb, {
       label: LABELS.instagram,
       action: () => ix.showCard(linkCard("instagram")),
+      sound: () => sfx.flutter(),
       animate: (o, t) => pols.forEach((pn, i) => {
         pn.rotation.z = pn.userData.base + Math.sin(t * 2.6 + i * 1.3) * 0.16 * o;
         pn.rotation.x = -Math.abs(Math.sin(t * 1.9 + i)) * 0.35 * o;
@@ -425,7 +432,6 @@ export function furnish(world, onUpdate) {
       for (const sz of [-1.8, -1.1, -0.4]) {
         cyl(g, 0.17, 0.17, 0.05, oak, ixc + 0.8, 0.66, sz, 12);
         for (let k = 0; k < 4; k++) cyl(g, 0.015, 0.02, 0.64, white, ixc + 0.8 + Math.cos(k * 1.57 + 0.78) * 0.13, 0.32, sz + Math.sin(k * 1.57 + 0.78) * 0.13, 5);
-        collideBox(ixc + 0.8, sz, 0.36, 0.36, "up");
       }
       // on the island: cutting board, a bowl of clementines, a vase of hydrangeas
       box(g, 0.3, 0.02, 0.42, walnut, ixc - 0.1, 0.95, -1.7, { collide: false, castShadow: false });
@@ -447,7 +453,7 @@ export function furnish(world, onUpdate) {
     cyl(kt, 0.65, 0.65, 0.05, white, 0, 0.74, 0, 28);
     cyl(kt, 0.07, 0.12, 0.72, white, 0, 0.36, 0, 12);
     cyl(kt, 0.35, 0.35, 0.03, white, 0, 0.015, 0, 20);
-    collideBox(tx, tz, 1.1, 1.1, "up");
+    collideBox(tx, tz, 0.9, 0.9, "up");
     function chair(x, z, rotY, m = white) {
       const ch = group(x, 0, z, rotY);
       box(ch, 0.42, 0.04, 0.42, m, 0, 0.45, 0, { collide: false });
@@ -455,11 +461,10 @@ export function furnish(world, onUpdate) {
       for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) cyl(ch, 0.015, 0.015, 0.45, m, lx, 0.22, lz, 6);
       // cushion
       box(ch, 0.36, 0.04, 0.36, navy, 0, 0.49, 0, { collide: false, castShadow: false });
-      collideBox(x, z, 0.45, 0.45, "up");
     }
     chair(tx, tz + 0.95, Math.PI);
-    chair(tx + 0.95, tz, Math.PI / 2);
-    chair(tx - 0.95, tz, -Math.PI / 2);
+    chair(tx + 0.95, tz, -Math.PI / 2);
+    chair(tx - 0.95, tz, Math.PI / 2);
     chair(tx, tz - 0.95, 0);
     // bowl of lemons
     cyl(kt, 0.16, 0.1, 0.07, seafoam, 0.25, 0.8, -0.15, 16);
@@ -496,14 +501,17 @@ export function furnish(world, onUpdate) {
     cover.position.set(-0.21, 0.004, 0);
     box(cover, 0.42, 0.006, 0.3, new THREE.MeshStandardMaterial({ map: npTex, roughness: 1 }), 0.21, 0, 0, { collide: false, castShadow: false });
     np.add(cover);
-    const paperAnim = (o, t) => {
+    const paperAnim = (o, t, kick = 0) => {
       const e = o * o * (3 - 2 * o);
       cover.rotation.z = e * 2.2 + Math.sin(t * 2.2) * 0.04 * e;
+      np.position.y = 0.765 + kick * 0.18;
+      np.rotation.x = -kick * 0.5;
     };
     ix.add(np, {
       label: LABELS.daily,
       labelY: 1.3,
       animate: paperAnim,
+      sound: () => sfx.rustle(),
       action: () =>
         ix.showCard({
           title: "The Cape Daily",
@@ -592,12 +600,12 @@ export function furnish(world, onUpdate) {
     const scrMat = new THREE.MeshBasicMaterial({ map: scrTex });
     plane(lidP, 0.31, 0.19, scrMat, 0, 0.115, 0.002);
     lidP.rotation.x = 1.5;
-    const lapAnim = (o) => {
+    const lapAnim = (o, t, kick = 0) => {
       const e = o * o * (3 - 2 * o);
       lidP.rotation.x = 1.5 - e * 1.75;
-      scrMat.color.setScalar(0.08 + 0.92 * Math.max(0, (e - 0.5) * 2));
+      scrMat.color.setScalar(0.08 + 0.92 * Math.max(0, (e - 0.5) * 2) + kick * 0.8);
     };
-    ix.add(lp, { label: LABELS.linkedin, labelY: 1.15, action: () => ix.showCard(linkCard("linkedin")), animate: lapAnim });
+    ix.add(lp, { label: LABELS.linkedin, labelY: 1.15, action: () => ix.showCard(linkCard("linkedin")), animate: lapAnim, sound: () => sfx.chime() });
 
     // Printed resume on the desk → Resume
     const rs = group(deskX - 0.05, 0.76, deskZ - 0.62, -0.18);
@@ -617,20 +625,20 @@ export function furnish(world, onUpdate) {
       });
     });
     const sheet = box(rs, 0.215, 0.004, 0.28, new THREE.MeshStandardMaterial({ map: resumeTex, roughness: 1 }), 0, 0, 0, { collide: false, castShadow: false });
-    const resumeAnim = (o, t) => {
+    const resumeAnim = (o, t, kick = 0) => {
       const e = o * o * (3 - 2 * o);
-      sheet.position.y = e * 0.16 + Math.sin(t * 2.4) * 0.008 * e;
+      sheet.position.y = e * 0.16 + Math.sin(t * 2.4) * 0.008 * e + kick * 0.22;
       sheet.rotation.z = e * 0.55;
       sheet.rotation.y = Math.sin(t * 1.3) * 0.08 * e;
     };
     box(rs, 0.215, 0.004, 0.28, paper, 0.012, -0.004, 0.01, { collide: false, castShadow: false });
     // paperclip-ish brass clip
     box(rs, 0.03, 0.006, 0.04, brass, -0.08, 0.006, -0.11, { collide: false, castShadow: false });
-    ix.add(rs, { label: LABELS.resume, labelY: 1.45, action: () => ix.showCard(linkCard("resume")), animate: resumeAnim });
+    ix.add(rs, { label: LABELS.resume, labelY: 1.45, action: () => ix.showCard(linkCard("resume")), animate: resumeAnim, sound: () => sfx.rustle() });
 
     // Bookshelf on the back wall, reading chair + lamp, rug, wall art
     bookshelf(4.6, 0, H.minZ + 0.17, 0, 1.6, 5);
-    armchair(5.9, 0, H.minZ + 0.9, Math.PI + 0.6, butter);
+    armchair(5.9, 0, H.minZ + 0.9, -0.6, butter);
     lamp(6.5, 0, H.minZ + 0.45, { tall: true, intensity: 2.2 });
     plane(g, 2.6, 1.8, mat("rugDen", { map: T.rugTexture(["#b5534a", "#f3ead6", "#2f4a6b", "#f3ead6"]), roughness: 1 }), 5.0, 0.012, 0.0, 0, -Math.PI / 2).receiveShadow = true;
     // framed pennant + nautical chart on the living-room-side wall
@@ -719,8 +727,17 @@ export function furnish(world, onUpdate) {
     // Mini fridge in the corner with a glowing panel
     const mf = group(H.maxX - 0.45, bY, H.minZ + 0.45);
     box(mf, 0.55, 0.85, 0.55, black, 0, 0.425, 0, { collide: false });
-    box(mf, 0.5, 0.78, 0.02, mat("mfDoor", { color: 0x2f4a6b, roughness: 0.4 }), 0, 0.43, 0.28, { collide: false, castShadow: false });
-    cyl(mf, 0.012, 0.012, 0.3, mat("chrome"), -0.18, 0.5, 0.29, 6);
+    // door on a hinge, with a lit shelf of cans behind it
+    const mfDoor = new THREE.Group();
+    mfDoor.position.set(0.25, 0, 0.28);
+    box(mfDoor, 0.5, 0.78, 0.03, mat("mfDoor", { color: 0x2f4a6b, roughness: 0.4 }), -0.25, 0.43, 0, { collide: false, castShadow: false });
+    cyl(mfDoor, 0.012, 0.012, 0.3, mat("chrome"), -0.43, 0.5, 0.025, 6);
+    mf.add(mfDoor);
+    box(mf, 0.46, 0.72, 0.01, new THREE.MeshBasicMaterial({ color: 0xeaf6ff }), 0, 0.43, -0.2, { collide: false, castShadow: false });
+    box(mf, 0.46, 0.02, 0.4, white, 0, 0.42, 0.03, { collide: false, castShadow: false });
+    const canM = [mat("canA", { color: 0xd9dde0, metalness: 0.7, roughness: 0.3 }), mat("canB", { color: 0x2e6b4f, metalness: 0.5, roughness: 0.4 }), mat("canC", { color: 0xb5534a, metalness: 0.5, roughness: 0.4 })];
+    for (let r2 = 0; r2 < 2; r2++) for (let k = 0; k < 5; k++) cyl(mf, 0.033, 0.033, 0.12, canM[(k + r2) % 3], -0.18 + k * 0.09, 0.14 + r2 * 0.35, 0.08, 10);
+    world.miniFridge = { group: mf, door: mfDoor };
     const mfGlow = new THREE.PointLight(0x9fd3c7, 1.2, 2.5, 2);
     mfGlow.position.set(0, 0.95, 0.2);
     mf.add(mfGlow);
@@ -764,8 +781,6 @@ export function furnish(world, onUpdate) {
     // Bean bag chairs facing the TV
     sphere(g, 0.45, mat("beanNavy", { color: C.navy, roughness: 1 }), -4.3, bY + 0.3, H.maxZ - 2.2, 10).scale.y = 0.65;
     sphere(g, 0.45, mat("beanRed", { color: C.nantucketRed, roughness: 1 }), -2.8, bY + 0.3, H.maxZ - 2.2, 10).scale.y = 0.65;
-    collideBox(-4.3, H.maxZ - 2.2, 0.9, 0.9, "down");
-    collideBox(-2.8, H.maxZ - 2.2, 0.9, 0.9, "down");
     // Rug under the pong table
     plane(g, 2.0, 4.0, mat("rugBasement", { map: T.rugTexture(["#5a3d2b", "#8a6a48", "#5a3d2b", "#c9a56b"]), roughness: 1 }), px, bY + 0.012, pz, 0, -Math.PI / 2).receiveShadow = true;
 
@@ -819,6 +834,8 @@ export function furnish(world, onUpdate) {
     collideBox(H.minX + 0.5, H.maxZ - 0.5, 0.6, 0.4, "down");
   }
 
+  setRound(false);
+  addFun(world, ix, onUpdate);
   onUpdate((dt) => ix.update(dt));
   window.__games = games; // used by tests
 }

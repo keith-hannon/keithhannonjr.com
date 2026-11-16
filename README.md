@@ -69,6 +69,11 @@ npm run build    # production build into dist/
 | `src/world/house.js` | Exterior, walls, roof, stairs, basement shell, lighting |
 | `src/world/outdoors.js` | Terrain, bluff, beach, ocean, sky, street, neighbors, deck, and the beach crowd |
 | `src/world/wing.js` | The side wing: bunk room and sunroom |
+| `src/world/suite.js` | Primary bedroom and the two bathrooms |
+| `src/world/horizon.js` | Lighthouse, island, moored boats, ferry, distant trees and rooftops, cupola, pergola |
+| `src/fun.js` | Mini fridge and beers, outdoor shower, driveway hoop, kite spot, Boston/Harvard decor |
+| `src/games/kite/` | Kite fight on the beach |
+| `src/sfx.js` | Sound effects |
 | `src/world/textures.js` | Procedural textures (shingles, planks, paneling…) |
 | `src/furnish.js` | Furniture and the interactive objects in each room |
 | `src/interact.js` | Glow/label/click system and the link card |
@@ -78,6 +83,11 @@ npm run build    # production build into dist/
 | `simple.html` | The fast "skip the tour" page |
 | `daily.html`, `src/daily.js` | The Cape Daily (Daily Games placeholder) |
 | `netlify.toml` | Build settings for Netlify |
+
+### Tuning and people
+
+- Beer pong difficulty: the four numbers under "Difficulty knobs" at the top of `src/games/pong/index.js` (sweep speeds, forgiveness, how often the house hits).
+- People: there are none right now. `PEOPLE` at the top of `src/world/outdoors.js` turns the generic crowd back on; specific people can be placed with `person(x, z, {...})` in that file.
 
 ### Adding a game
 

@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { colliders, groundHeight, levelOf, SPAWN } from "../world/layout.js";
 
 const EYE = 1.6;
-const RADIUS = 0.32;
+const RADIUS = 0.22;
 const SPEED = 3.6;
 const LOOK_SENS = 0.0022;
 const TOUCH_LOOK_SENS = 0.0045;
@@ -176,6 +176,7 @@ export class Player {
     if (!this.enabled) return; // a game or card owns the camera right now
     // Movement input
     let fwd = 0, strafe = 0;
+    const hz = this.haze || 0;
     const k = this.keys;
     if (k.has("KeyW") || k.has("ArrowUp")) fwd += 1;
     if (k.has("KeyS") || k.has("ArrowDown")) fwd -= 1;
@@ -185,6 +186,7 @@ export class Player {
       fwd += -this.joy.dy;
       strafe += this.joy.dx;
     }
+    if (hz > 0.3 && (fwd || strafe)) strafe += Math.sin(performance.now() / 900) * 0.45 * hz; // wobbly legs
     const len = Math.hypot(fwd, strafe);
     if (len > 1) {
       fwd /= len;
@@ -231,5 +233,12 @@ export class Player {
     this.camera.rotation.set(0, 0, 0);
     this.camera.rotateY(this.yaw);
     this.camera.rotateX(this.pitch);
+    const hz = this.haze || 0;
+    if (hz > 0) {
+      const t = performance.now() / 1000;
+      this.camera.rotateZ(Math.sin(t * 0.9) * 0.06 * hz);
+      this.camera.rotateX(Math.sin(t * 0.63 + 1) * 0.035 * hz);
+      this.camera.rotateY(Math.sin(t * 0.41) * 0.05 * hz);
+    }
   }
 }

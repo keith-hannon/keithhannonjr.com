@@ -5,6 +5,7 @@ import { SITE, LABELS } from "../site.config.js";
 
 const NEAR = 4.2;     // start showing label / glow
 const USE = 3.2;      // close enough to click
+const OPEN = 3.0;     // objects open up (mailbox door, laptop lid, newspaper…) inside this distance
 const GLOW = new THREE.Color(0x9fd3c7);
 
 export class Interactions {
@@ -12,7 +13,7 @@ export class Interactions {
     this.world = world;
     this.items = [];
     this.raycaster = new THREE.Raycaster();
-    this.raycaster.far = USE + 0.5;
+    this.raycaster.far = 16;
     this.focused = null;
     this.prompt = document.getElementById("prompt");
     this.time = 0;
@@ -32,7 +33,7 @@ export class Interactions {
   }
 
   // Register a group as interactive. action() is called on use.
-  add(group, { label, hint = "", action, radius = 1.2, labelY = null, animate = null }) {
+  add(group, { label, hint = "", action, radius = 1.2, labelY = null, animate = null, sound = null, instant = false, reach = USE }) {
     const meshes = [];
     group.traverse((o) => {
       if (o.isMesh) {
@@ -55,10 +56,18 @@ export class Interactions {
       group, meshes, sprite, label, hint, center, radius,
       glow: 0,
       open: 0,
-      animate,
+      animate, sound, reach,
+      kick: 0,
       use: () => {
-        if (this._card) return;
-        action(item);
+        if (this._card || item.busy) return;
+        // a quick flourish first (letter pops out, page lifts), then the action
+        item.kick = 1;
+        if (instant || !animate) return action(item);
+        item.busy = true;
+        setTimeout(() => {
+          item.busy = false;
+          action(item);
+        }, 320);
       },
     };
     for (const m of meshes) m.userData.interactable = item;
@@ -72,7 +81,7 @@ export class Interactions {
     const hits = this.raycaster.intersectObjects(meshes, false);
     if (hits.length) {
       const it = hits[0].object.userData.interactable;
-      if (hits[0].distance <= USE) return it;
+      if (hits[0].distance <= it.reach) return it;
     }
     return null;
   }
@@ -93,12 +102,16 @@ export class Interactions {
     for (const it of this.items) {
       const d = it.center.distanceTo(camPos);
       const sameLevel = (it.center.y < -1) === (player.pos.y < -1);
-      const near = d < NEAR && sameLevel && !this._card && player.enabled;
+      const near = d < Math.max(NEAR, it.reach) && sameLevel && !this._card && player.enabled;
+      const opening = (d < OPEN && sameLevel && player.enabled) || focus === it || it.busy || !!this._cardItem && this._cardItem === it;
       const target = focus === it ? 1 : near ? 0.55 : 0;
       it.glow += (target - it.glow) * Math.min(1, dt * 8);
       // 0 → 1 as you walk up (or point at it); each object decides what "opening" means
-      it.open += ((near || focus === it ? 1 : 0) - it.open) * Math.min(1, dt * 4.5);
-      if (it.animate) it.animate(it.open, this.time, dt);
+      if (opening && !it.wasOpening && it.sound) it.sound();
+      it.wasOpening = opening;
+      it.open += ((opening ? 1 : 0) - it.open) * Math.min(1, dt * 3);
+      it.kick = Math.max(0, it.kick - dt * 2.2);
+      if (it.animate) it.animate(it.open, this.time, it.kick);
       const pulse = 0.75 + 0.25 * Math.sin(this.time * 3.2 + it.center.x);
       const g = it.glow * pulse;
       for (const m of it.meshes) {
@@ -115,7 +128,7 @@ export class Interactions {
 
     // Prompt text
     if (focus) {
-      this.prompt.innerHTML = `${focus.label}<small>click</small>`;
+      this.prompt.innerHTML = `${focus.label}<small>${focus.hint || "click"}</small>`;
       this.prompt.hidden = false;
     } else {
       this.prompt.hidden = true;

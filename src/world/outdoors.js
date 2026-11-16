@@ -2,7 +2,11 @@
 // sky, the street and neighbors, the back deck, and the July beach crowd.
 import * as THREE from "three";
 import { H, DECK, WING, WATER_Y, terrainHeight as TH, addCollider } from "./layout.js";
-import { box, mat, PALETTE as C } from "./house.js";
+import { box, mat, setRound, PALETTE as C } from "./house.js";
+
+// Nobody is on the beach or in the yard for now. Flip this to true to bring
+// the generic crowd back, or add specific people with person(x, z, {...}).
+const PEOPLE = false;
 import * as T from "./textures.js";
 
 function rng(seed) {
@@ -11,6 +15,7 @@ function rng(seed) {
 }
 
 export function buildOutdoors(scene, { isMobile }, onUpdate) {
+  setRound(true);
   const g = new THREE.Group();
   g.name = "outdoors";
   scene.add(g);
@@ -54,7 +59,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     ctx.fillStyle = gr;
     ctx.fillRect(0, 0, w, h);
   });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(260, 24, 16), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 24, 16), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
   sky.renderOrder = -10;
   g.add(sky);
   const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.92 });
@@ -81,15 +86,21 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
 
   // ================= Terrain =================
   {
-    const X0 = -64, X1 = 64, Z0 = -72.5, Z1 = 41.5;
-    const nx = X1 - X0, nz = Z1 - Z0;
+    const xs = [], zs = [];
+    for (let x = -424; x < -64; x += 20) xs.push(x);
+    for (let x = -64; x <= 64; x++) xs.push(x);
+    for (let x = 84; x <= 424; x += 20) xs.push(x);
+    for (const z of [-420, -300, -200, -130, -92.5]) zs.push(z);
+    for (let z = -72.5; z <= 41.5; z++) zs.push(z);
+    for (let z = 61.5; z <= 361.5; z += 20) zs.push(z);
+    const nx = xs.length - 1, nz = zs.length - 1;
     const pos = [], col = [], uv = [], idx = [];
     const grassA = new THREE.Color(0x6fa052), grassB = new THREE.Color(0x86b565), dune = new THREE.Color(0xb9b27a);
     const sand = new THREE.Color(0xfff0c8), wet = new THREE.Color(0xc9b68a), shell = new THREE.Color(0xe9e4d6), sea = new THREE.Color(0x9fb59a);
     const c = new THREE.Color();
     for (let iz = 0; iz <= nz; iz++) {
       for (let ix = 0; ix <= nx; ix++) {
-        const x = X0 + ix, z = Z0 + iz, h = TH(x, z);
+        const x = xs[ix], z = zs[iz], h = TH(x, z);
         pos.push(x, h, z);
         uv.push(x / 5, z / 5);
         const n = Math.sin(x * 1.7 + z * 0.9) * Math.sin(z * 1.3 - x * 0.4);
@@ -110,7 +121,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const row = nx + 1;
     for (let iz = 0; iz < nz; iz++) {
       for (let ix = 0; ix < nx; ix++) {
-        const x = X0 + ix + 0.5, z = Z0 + iz + 0.5;
+        const x = (xs[ix] + xs[ix + 1]) / 2, z = (zs[iz] + zs[iz + 1]) / 2;
         if (x > H.minX && x < H.maxX && z > H.minZ && z < H.maxZ) continue; // basement lives here
         const a = iz * row + ix, b = a + 1, d = a + row, e = d + 1;
         idx.push(a, d, b, b, d, e);
@@ -156,13 +167,13 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
       }
     });
     waveTex.wrapS = waveTex.wrapT = THREE.RepeatWrapping;
-    waveTex.repeat.set(30, 16);
-    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(520, 260), new THREE.MeshStandardMaterial({ map: waveTex, color: 0xffffff, roughness: 0.3, metalness: 0.05, transparent: true, opacity: 0.9 }));
+    waveTex.repeat.set(80, 36);
+    const ocean = new THREE.Mesh(new THREE.PlaneGeometry(1400, 620), new THREE.MeshStandardMaterial({ map: waveTex, color: 0xffffff, roughness: 0.3, metalness: 0.05, transparent: true, opacity: 0.9 }));
     ocean.rotation.x = -Math.PI / 2;
-    ocean.position.set(0, WATER_Y, -160);
+    ocean.position.set(0, WATER_Y, -340);
     g.add(ocean);
     const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
-    const foam = new THREE.Mesh(new THREE.PlaneGeometry(128, 1.1), foamMat);
+    const foam = new THREE.Mesh(new THREE.PlaneGeometry(840, 1.1), foamMat);
     foam.rotation.x = -Math.PI / 2;
     g.add(foam);
     const foam2 = foam.clone();
@@ -187,14 +198,15 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     }) });
     asphalt.map.wrapS = asphalt.map.wrapT = THREE.RepeatWrapping;
     asphalt.map.repeat.set(40, 2);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(128, 6.4), asphalt);
+    asphalt.map.repeat.set(260, 2);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(840, 6.4), asphalt);
     road.rotation.x = -Math.PI / 2;
     road.position.set(0, 0.012, 18.8);
     road.receiveShadow = true;
     g.add(road);
     for (let x = -60; x < 62; x += 5) box(g, 2, 0.01, 0.12, std(0xf1e7b0), x, 0.02, 18.8, { collide: false, castShadow: false });
     for (const z of [14.9, 22.7]) {
-      const sw = new THREE.Mesh(new THREE.PlaneGeometry(128, 1.3), std(0xcfc9bb));
+      const sw = new THREE.Mesh(new THREE.PlaneGeometry(840, 1.3), std(0xcfc9bb));
       sw.rotation.x = -Math.PI / 2;
       sw.position.set(0, 0.016, z);
       sw.receiveShadow = true;
@@ -225,7 +237,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     }
     addCollider(x - 0.35, x + 0.35, z - 0.35, z + 0.35, "up");
   }
-  [[-13, 8, 1.2], [17, 9, 1.1], [-17, -3, 1.3, 1], [19, -4, 1.0, 1], [-20, 11, 1.0], [22, 12, 1.2], [-34, -2, 1.4, 1], [38, -1, 1.3, 1], [-26, 12, 1.1], [34, 11, 1.0],
+  [[-21, -9, 1.2], [24, 9, 1.1], [-17, -3, 1.3, 1], [24.5, -4, 1.0, 1], [-20, 11, 1.0], [26, 13, 1.2], [-34, -2, 1.4, 1], [43.5, -2, 1.3, 1], [-26, 12, 1.1], [28, 11.5, 1.0],
    [-10, 27, 1.3], [12, 28, 1.2], [-30, 27, 1.1, 1], [34, 28, 1.3], [-40, 8, 1.2, 1], [42, 6, 1.1]].forEach((a) => tree(...a));
   // privet hedges between lots
   const hedgeM = std(0x3f7448);
@@ -237,7 +249,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     addCollider(x - 0.5, x + 0.5, z1 - 0.7, z2, "up");
   }
   hedge(-16.5, 4, 13.5);
-  hedge(18.5, 3, 13.5);
+  hedge(23, 4.5, 13.5);
   // rosa rugosa + daylilies along the fence and bluff edge
   const flowerCols = [0xe86a8a, 0xf4a6c0, 0xf2c14e, 0xffffff, 0xe86a8a];
   const fl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 6, 5), new THREE.MeshStandardMaterial({ roughness: 1 }), 260);
@@ -343,7 +355,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     addCollider(x - cw / 2 - 0.3, x + cw / 2 + 0.3, z - cd / 2 - 0.3, z + cd / 2 + 0.3, "up");
   }
   cottage(-29, 4, 0, 11, 8, 0xd9d4c6, 0x2f4a6b, 0x2f4a6b);
-  cottage(31, 3.5, 0, 12, 8, 0xbfc7c4, 0xf4d98b, 0x55606a);
+  cottage(35, 3.5, 0, 12, 8, 0xbfc7c4, 0xf4d98b, 0x55606a);
   cottage(-22, 31, Math.PI, 12, 8, 0xe6e0d0, 0x9fd3c7, 0x3f6a5a);
   cottage(1, 32, Math.PI, 10, 8, 0xc9c2b4, 0xb5534a, 0x2f4a6b);
   cottage(24, 31, Math.PI, 12, 8, 0xdcd8cc, 0x2f4a6b, 0x7a4a44);
@@ -372,7 +384,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const along = Math.abs(Math.sin(rotY)) > 0.5;
     addCollider(x - (along ? 2.3 : 1.0), x + (along ? 2.3 : 1.0), z - (along ? 1.0 : 2.3), z + (along ? 1.0 : 2.3), "up");
   }
-  wagon(-12, 9.5, 0.05, 0x2f4a6b, true);
+  wagon(-12, 11.6, 0.05, 0x2f4a6b, true);
   wagon(9, 16.6, Math.PI / 2, 0xe9dcc3);
   wagon(-24, 21.2, Math.PI / 2, 0x6b8e7a);
   function bike(x, z, rotY, col) {
@@ -430,6 +442,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
       limbs[sx] = { leg, arm };
     }
     p.userData = { body, limbs, torso };
+    p.visible = PEOPLE;
     if (pose === "sit") {
       body.position.y = -0.42;
       body.rotation.x = -0.25;
@@ -520,7 +533,8 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     g.add(net);
     const players = [[-3, -2], [-3.5, 2], [3, -1.5], [3.4, 2.2]].map(([dx, dz]) => person(vx + dx, vz + dz, { rotY: dx < 0 ? Math.PI / 2 : -Math.PI / 2 }));
     const ball = sph(g, 0.13, whiteM, vx, 0, vz, 10);
-    anim.push((t) => {
+    ball.position.set(vx + 1.6, TH(vx + 1.6, vz + 1) + 0.13, vz + 1);
+    if (PEOPLE) anim.push((t) => {
       const ph = (t * 0.5) % 2, u = ph < 1 ? ph : 2 - ph;
       ball.position.set(vx - 3 + u * 6, TH(vx, vz) + 1.6 + Math.sin(u * Math.PI) * 2.2, vz + Math.sin(t * 0.37) * 1.5);
       players.forEach((p, i) => {
@@ -546,7 +560,10 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const bb = sph(g, 0.22, stripes[1], kx + 4, 0, kz + 2, 10);
     const k3 = person(kx + 5.4, kz + 2, { pose: "kid", rotY: -Math.PI / 2 });
     const k4 = person(kx + 2.6, kz + 2, { pose: "kid", rotY: Math.PI / 2 });
+    bb.position.set(kx + 4, TH(kx + 4, kz + 2) + 0.22, kz + 2);
     anim.push((t) => {
+      flag.rotation.y = Math.sin(t * 4) * 0.4;
+      if (!PEOPLE) return;
       k1.userData.limbs[1].arm.rotation.x = -1 + Math.sin(t * 5) * 0.5;
       k2.userData.body.rotation.x = 0.3 + Math.sin(t * 2) * 0.1;
       const ph = (t * 0.6) % 2, u = ph < 1 ? ph : 2 - ph;
@@ -575,8 +592,8 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     for (let i = 0; i < 7; i++) {
       const s = new THREE.Group();
       s.position.set(-34 + i * 11 + r() * 4, WATER_Y, -37 - r() * 9);
-      sph(s, 0.13, std(skins[i % 5]), 0, 0.08, 0, 8);
-      sph(s, 0.135, std(hairs[i % 5]), 0, 0.13, -0.02, 8).scale.y = 0.7;
+      sph(s, 0.13, std(skins[i % 5]), 0, 0.08, 0, 8).visible = PEOPLE;
+      sph(s, 0.135, std(hairs[i % 5]), 0, 0.13, -0.02, 8).visible = PEOPLE;
       if (i % 3 === 0) {
         const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.14, 8, 16), std([0xf4a6c0, 0xf4d98b, 0x9fd3c7][i % 3], { roughness: 0.4 }));
         ring.rotation.x = Math.PI / 2;
@@ -593,6 +610,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const rider = person(0, 0, { parent: sup, y: 0.05, rotY: Math.PI / 2 });
     const paddle = cyl(rider, 0.02, 0.02, 1.9, woodM, 0.3, 1.0, 0.25, 5);
     g.add(sup);
+    sup.visible = PEOPLE;
     anim.push((t) => {
       swimmers.forEach((s, i) => {
         s.position.y = WATER_Y + Math.sin(t * 1.4 + i * 1.7) * 0.07;
@@ -622,6 +640,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const kite = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.4), new THREE.MeshBasicMaterial({ color: 0xb5534a, side: THREE.DoubleSide, fog: false }));
     kite.rotation.z = Math.PI / 4;
     g.add(kite);
+    cyl(g, 0.03, 0.03, 0.6, woodM, -26.8, TH(-27, -29) + 0.25, -29.2, 6);
     const flyer = person(-27, -29, { rotY: Math.PI });
     flyer.userData.limbs[1].arm.rotation.x = -2.3;
     const lineG = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
@@ -631,7 +650,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
       kite.position.set(-27 + Math.sin(t * 0.6) * 3, TH(-27, -29) + 11 + Math.sin(t * 0.9) * 1.2, -40 + Math.cos(t * 0.4) * 2);
       kite.rotation.y = Math.sin(t * 1.3) * 0.3;
       const pa = lineG.attributes.position;
-      pa.setXYZ(0, -26.8, TH(-27, -29) + 1.75, -29.2);
+      pa.setXYZ(0, -26.8, TH(-27, -29) + (PEOPLE ? 1.75 : 0.5), -29.2);
       pa.setXYZ(1, kite.position.x, kite.position.y, kite.position.z);
       pa.needsUpdate = true;
     });
@@ -699,6 +718,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     for (const sx of [-0.07, 0.07]) for (const sz of [-0.2, 0.2]) box(dog, 0.05, 0.26, 0.05, fur, sx, 0.13, sz, { collide: false });
     dog.rotation.y = Math.PI / 2;
     g.add(dog);
+    dog.visible = PEOPLE;
     const jogger = person(30, 22.7, { rotY: -Math.PI / 2 });
     anim.push((t, dt) => {
       walker.position.x += dt * 1.1;
@@ -772,7 +792,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     umbrella(tx, tz, stripes[0], 0, 0.03).scale.setScalar(1.25);
     for (let i = 0; i < 4; i++) {
       const a = i * Math.PI / 2 + 0.5;
-      const ch = grp(tx + Math.cos(a) * 1.15, tz + Math.sin(a) * 1.15, -a + Math.PI / 2, 0.03);
+      const ch = grp(tx + Math.cos(a) * 1.15, tz + Math.sin(a) * 1.15, Math.atan2(-Math.cos(a), -Math.sin(a)), 0.03);
       box(ch, 0.45, 0.04, 0.45, teak, 0, 0.44, 0, { collide: false });
       box(ch, 0.45, 0.45, 0.04, teak, 0, 0.68, -0.21, { collide: false });
       for (const [lx, lz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) box(ch, 0.04, 0.44, 0.04, teak, lx, 0.22, lz, { collide: false, castShadow: false });
@@ -802,7 +822,7 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     addCollider(11.0, 12.5, -8.0, -7.2, "up");
     person(11.6, -6.85, { rotY: Math.PI }).userData.limbs[1].arm.rotation.x = -1.2;
     // smoke puffs
-    const puffs = [0, 1, 2].map((i) => sph(g, 0.14, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 }), 11.6, 1.6, -7.6, 6));
+    const puffs = (PEOPLE ? [0, 1, 2] : []).map((i) => sph(g, 0.14, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 }), 11.6, 1.6, -7.6, 6));
     anim.push((t) => puffs.forEach((p, i) => {
       const u = (t * 0.35 + i / 3) % 1;
       p.position.set(11.6 + u * 0.5, 1.5 + u * 1.6, -7.6);
@@ -832,12 +852,10 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     const cedar = std(0xa98a62, { map: T.panelingTexture([2, 1]) });
     box(os, 0.06, 2.0, 1.4, cedar, -0.7, 1.0, 0, { collide: false });
     box(os, 1.4, 2.0, 0.06, cedar, 0, 1.0, -0.7, { collide: false });
-    const sd = box(os, 1.0, 1.6, 0.05, cedar, -0.1, 1.05, 0.7, { collide: false });
-    cyl(os, 0.02, 0.02, 2.2, alu, 0.6, 1.1, -0.4, 6);
-    cyl(os, 0.09, 0.05, 0.06, alu, 0.4, 2.15, -0.4, 8);
     box(os, 1.3, 0.04, 1.3, std(0xb0a898), 0, 0.03, 0, { collide: false, castShadow: false });
-    box(os, 0.5, 0.6, 0.04, stripes[2], -0.1, 1.7, 0.74, { collide: false });
-    addCollider(H.minX - 1.75, H.minX, -3.0, -1.4, "up");
+    box(os, 0.04, 0.6, 0.5, stripes[2], -0.74, 1.75, 0.3, { collide: false });
+    addCollider(H.minX - 1.75, H.minX - 1.6, -3.0, -1.4, "up");
+    addCollider(H.minX - 1.75, H.minX, -3.0, -2.85, "up");
   }
 
   // flagpole with a burgee in the front yard
@@ -859,5 +877,6 @@ export function buildOutdoors(scene, { isMobile }, onUpdate) {
     addCollider(fx - 0.15, fx + 0.15, fz - 0.15, fz + 0.15, "up");
   }
 
+  setRound(false);
   return g;
 }

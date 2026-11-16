@@ -2,6 +2,25 @@
 import * as THREE from "three";
 import { H, addCollider, WING, BACKDOOR } from "./layout.js";
 import * as T from "./textures.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+// Furniture and props get softly rounded edges; walls stay crisp.
+let ROUND = false;
+export function setRound(v) {
+  ROUND = v;
+}
+const geoCache = new Map();
+function boxGeo(w, h, d) {
+  const min = Math.min(w, h, d);
+  const round = ROUND && min >= 0.09;
+  const key = `${round ? "r" : "b"}|${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}`;
+  let geo = geoCache.get(key);
+  if (!geo) {
+    geo = round ? new RoundedBoxGeometry(w, h, d, 2, Math.min(0.07, min * 0.28)) : new THREE.BoxGeometry(w, h, d);
+    geoCache.set(key, geo);
+  }
+  return geo;
+}
 
 export const PALETTE = {
   seafoam: 0x9fd3c7,
@@ -23,7 +42,7 @@ export function mat(key, opts) {
 }
 
 export function box(group, w, h, d, material, x, y, z, { collide = false, level = "both", castShadow = true, receiveShadow = true, rotY = 0 } = {}) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  const m = new THREE.Mesh(boxGeo(w, h, d), material);
   m.position.set(x, y, z);
   m.rotation.y = rotY;
   m.castShadow = castShadow;
@@ -323,7 +342,6 @@ export function buildHouse(scene, { isMobile }) {
     box(g, it + 0.08, 2.2, 0.08, trim, x, 1.1, dz2 + 0.04, { collide: false, castShadow: false });
   }
   box(g, 0.22, 0.26, D, mat("openBeam", { color: 0xf7f5ee, roughness: 0.7 }), H.kitchenWallX, wallH - 0.13, 0, { collide: false, castShadow: false });
-  box(g, 0.18, wallH, 0.18, mat("openBeam"), H.kitchenWallX, wallH / 2, 0.75, { collide: true, level: "up", castShadow: false });
   for (const pz of [H.minZ + 0.06, H.maxZ - 0.06]) box(g, 0.18, wallH, 0.1, mat("openBeam"), H.kitchenWallX, wallH / 2, pz, { collide: false, castShadow: false });
   interiorWall(H.denWallX, livingWall, denWall);
 
@@ -416,7 +434,11 @@ export function buildHouse(scene, { isMobile }) {
   box(g, W, 0.12, 0.04, concrete, 0, bY + 0.06, H.maxZ - 0.12, { collide: false, castShadow: false });
   // ceiling joists / beams
   const beam = mat("beam", { color: 0x6b4a2e, roughness: 0.9 });
-  for (let x = -6; x <= 6; x += 1.5) box(g, 0.12, 0.2, D, beam, x, -H.slabT - 0.1, 0, { collide: false, castShadow: false });
+  for (let x = -6; x <= 6; x += 1.5) {
+    // the joist over the stairwell stops at the opening instead of crossing it
+    if (x > s.minX && x < s.maxX) box(g, 0.12, 0.2, H.maxZ - s.topZ, beam, x, -H.slabT - 0.1, (s.topZ + H.maxZ) / 2, { collide: false, castShadow: false });
+    else box(g, 0.12, 0.2, D, beam, x, -H.slabT - 0.1, 0, { collide: false, castShadow: false });
+  }
   // support posts
   for (const [px, pz] of [[-2.5, -2.2], [-2.5, 2.2], [3, -2.2], [3, 2.2]]) {
     box(g, 0.18, bH, 0.18, mat("post", { color: 0xe9e4d8, roughness: 0.9 }), px, bY + bH / 2, pz, { collide: true, level: "down", castShadow: false });

@@ -16,6 +16,13 @@ export const catalog = {
     daily: false,
     load: () => import("./pong/index.js"),
   },
+  kite: {
+    title: "Kite Fight",
+    blurb: "Cut the other kites loose before they cut yours.",
+    location: "Beach",
+    daily: false,
+    load: () => import("./kite/index.js"),
+  },
   // Example for later:
   // wordle: { title: "Cape Wordle", blurb: "One word a day.", location: "Kitchen", daily: true, load: () => import("./wordle/index.js") },
 };

@@ -199,3 +199,12 @@ body.in-game #crosshair, body.in-game #prompt, body.in-game #joystick, body.in-g
   .pong-flash.big { font-size: 2rem; }
   .pong-power { right: 10px; bottom: 120px; height: 120px; }
 }
+
+/* ---------- Pong meter steps, blackout, haze ---------- */
+.pong-steps { display: flex; gap: 6px; background: rgba(255,253,247,.92); border-radius: 999px; padding: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.pong-steps span { font-size: .78rem; font-weight: 600; color: #7a8a9a; padding: 6px 14px; border-radius: 999px; }
+.pong-steps span.on { background: var(--navy); color: #fff; }
+.pong-hint { max-width: 92vw; text-align: center; }
+#blackout { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 45; transition: opacity 1.4s ease; }
+#blackout.on { opacity: 1; pointer-events: auto; }
+#scene { transition: filter 1.2s ease; }

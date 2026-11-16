@@ -3,6 +3,8 @@ import { SITE, LABELS } from "../site.config.js";
 import { buildHouse } from "./world/house.js";
 import { buildOutdoors } from "./world/outdoors.js";
 import { buildWing } from "./world/wing.js";
+import { buildSuite } from "./world/suite.js";
+import { buildHorizon } from "./world/horizon.js";
 import { H } from "./world/layout.js";
 import { Player } from "./player/controls.js";
 import { applyMeta } from "./meta.js";
@@ -33,9 +35,9 @@ renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd9eef8);
-scene.fog = new THREE.Fog(0xd9eef8, 70, 240);
+scene.fog = new THREE.Fog(0xd9eef8, 90, 620);
 
-const camera = new THREE.PerspectiveCamera(isMobile ? 78 : 72, window.innerWidth / window.innerHeight, 0.05, 600);
+const camera = new THREE.PerspectiveCamera(isMobile ? 78 : 72, window.innerWidth / window.innerHeight, 0.1, 2000);
 
 // ---------- Build world ----------
 const loadingBar = document.getElementById("loading-bar");
@@ -103,6 +105,9 @@ document.getElementById("controls-toggle").addEventListener("click", () => {
 // ---------- Front door swings open when you approach ----------
 const doors = house.userData.doors;
 const wing = buildWing(scene, house);
+const suite = buildSuite(scene, house);
+world.bed = suite.bed;
+buildHorizon(scene, { isMobile }, onUpdate);
 buildOutdoors(scene, { isMobile }, onUpdate);
 onUpdate((dt) => (wing.fan.rotation.y += dt * 2.2));
 function updateDoor(dt) {
